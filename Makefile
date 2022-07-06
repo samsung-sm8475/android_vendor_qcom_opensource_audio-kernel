@@ -2,6 +2,7 @@ M=$(PWD)
 AUDIO_ROOT=$(KERNEL_SRC)/$(M)
 
 KBUILD_OPTIONS+=  AUDIO_ROOT=$(AUDIO_ROOT)
+KBUILD_OPTIONS += MODNAME=audio_dlkm
 
 $(shell rm -fr $(AUDIO_ROOT)/soc/core.h)
 $(shell ln -s $(KERNEL_SRC)/drivers/pinctrl/core.h $(AUDIO_ROOT)/soc/core.h)
