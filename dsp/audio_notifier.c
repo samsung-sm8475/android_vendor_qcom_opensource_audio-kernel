@@ -209,7 +209,7 @@ static int audio_notifier_reg_service(int service, int domain)
 
 	pr_info("%s: service %s is in use\n",
 		__func__, service_data[service][domain].name);
-	pr_debug("%s: service %s has current state %d, handle 0x%pK\n",
+	pr_info("%s: service %s has current state %d, handle 0x%pK\n",
 		__func__, service_data[service][domain].name,
 		service_data[service][domain].state,
 		service_data[service][domain].handle);
@@ -286,7 +286,7 @@ static int audio_notifier_reg_client_service(struct client_data *client_data,
 		client_data->nb);
 	service_data[service][domain].num_of_clients++;
 
-	pr_debug("%s: registered client %s on service %s, current state 0x%x\n",
+	pr_info("%s: registered client %s on service %s, current state 0x%x\n",
 		__func__, client_data->client_name,
 		service_data[service][domain].name,
 		service_data[service][domain].state);
@@ -322,7 +322,7 @@ static int audio_notifier_reg_client(struct client_data *client_data)
 	for (; service >= 0; service--) {
 		/* If a service is not initialized, wait for it to come up. */
 		if (service_data[service][domain].state == UNINIT_SERVICE) {
-			pr_err_ratelimited("%s: failed in client registration to PDR\n",
+			pr_err("%s: failed in client registration to PDR\n",
 				 __func__);
 			ret = -EINVAL;
 			goto done;
@@ -341,7 +341,7 @@ static int audio_notifier_reg_client(struct client_data *client_data)
 		 * they initialize correctly or will disable their service and
 		 * register clients on the next best avaialable service.
 		 */
-		pr_debug("%s: register client %s on service %s",
+		pr_info("%s: register client %s on service %s",
 				__func__, client_data->client_name,
 				service_data[service][domain].name);
 
@@ -393,7 +393,7 @@ static int audio_notifier_dereg_client(struct client_data *client_data)
 		goto done;
 	}
 
-	pr_debug("%s: deregistered client %s on service %s\n",
+	pr_info("%s: deregistered client %s on service %s\n",
 		__func__, client_data->client_name,
 		service_data[service][domain].name);
 
@@ -621,7 +621,7 @@ bool audio_notifier_probe_status(void)
 		goto exit;
 	}
 	if (priv->notifier_probe_complete) {
-		dev_dbg(&pdev->dev, "%s: audio notify probe successfully completed\n",
+		dev_info(&pdev->dev, "%s: audio notify probe successfully completed\n",
 			__func__);
 		return true;
 	}
@@ -638,6 +638,7 @@ static int audio_notify_probe(struct platform_device *pdev)
 	int size;
 	phandle rproc_phandle;
 
+	dev_info(&pdev->dev, "%s: enter\n", __func__);
 	adsp_private = NULL;
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -669,6 +670,7 @@ static int audio_notify_probe(struct platform_device *pdev)
 	audio_notifier_late_init();
 
 	priv->notifier_probe_complete = true;
+	dev_info(&pdev->dev, "%s: leave\n", __func__);
 
 	return 0;
 }

@@ -78,6 +78,7 @@ static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 	phandle rproc_phandle;
 	struct rproc *rproc;
 
+	dev_info(&pdev->dev, "%s: enter\n", __func__);
 	if (!pdev) {
 		dev_err(&pdev->dev, "%s: Platform device null\n", __func__);
 		goto fail;
@@ -163,7 +164,7 @@ load_adsp:
 				"%s: ADSP state = %x\n", __func__, adsp_state);
 		}
 
-		dev_dbg(&pdev->dev, "%s: Q6/ADSP image is loaded\n", __func__);
+		dev_info(&pdev->dev, "%s: Q6/ADSP image is loaded\n", __func__);
 		return;
 	}
 
@@ -345,6 +346,7 @@ static int adsp_loader_probe(struct platform_device *pdev)
 	phandle rproc_phandle;
 	struct rproc *adsp;
 
+	dev_info(&pdev->dev, "%s: enter\n", __func__);
 	prop = of_find_property(pdev->dev.of_node, "qcom,rproc-handle",
 				&size);
 	if (!prop) {
@@ -489,6 +491,7 @@ wqueue:
 	if (adsp_fw_name_array)
 		devm_kfree(&pdev->dev, adsp_fw_name_array);
 
+	dev_info(&pdev->dev, "%s: leave\n", __func__);
 	return 0;
 
 }

@@ -109,20 +109,14 @@ int gpr_send_pkt(struct gpr_device *adev, struct gpr_pkt *pkt)
 
 	gpr = dev_get_drvdata(adev->dev.parent);
 
-	if (!gpr) {
-		pr_err_ratelimited("%s: Failed to get gpr dev pointer : gpr[%pK] \n",
-			__func__, gpr);
-		return -EINVAL;
-	}
-
 	if ((adev->domain_id == GPR_DOMAIN_ADSP) &&
 	    (gpr_get_q6_state() != GPR_SUBSYS_LOADED)) {
-		dev_err_ratelimited(gpr->dev,"%s: domain_id[%d], Still Dsp is not Up\n",
+		dev_err(gpr->dev,"%s: domain_id[%d], Still Dsp is not Up\n",
 			__func__, adev->domain_id);
 		return -ENETRESET;
 		} else if ((adev->domain_id == GPR_DOMAIN_MODEM) &&
 		   (gpr_get_modem_state() == GPR_SUBSYS_DOWN)) {
-		dev_err_ratelimited(gpr->dev, "%s: domain_id[%d], Still Modem is not Up\n",
+		dev_err(gpr->dev, "%s: domain_id[%d], Still Modem is not Up\n",
 			__func__, adev->domain_id );
 		return -ENETRESET;
 	}
@@ -213,7 +207,7 @@ static int gpr_notifier_service_cb(struct notifier_block *this,
 		goto done;
 	}
 
-	dev_dbg(gpr_priv->dev,"%s: Service opcode 0x%lx, domain %d\n",
+	dev_info(gpr_priv->dev,"%s: Service opcode 0x%lx, domain %d\n",
 		__func__, opcode, cb_data->domain);
 
 	switch (opcode) {
@@ -498,7 +492,7 @@ static int gpr_probe(struct rpmsg_device *rpdev)
 	int ret;
 
 	if (!audio_notifier_probe_status()) {
-		pr_err("%s: Audio notify probe not completed, defer audio gpr probe\n",
+		pr_err("%s: Audio notifier probe not completed, defer audio gpr probe\n",
 			__func__);
 		return -EPROBE_DEFER;
 	}

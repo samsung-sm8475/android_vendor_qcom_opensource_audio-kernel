@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/gpio.h>
@@ -8,7 +8,6 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/of_device.h>
-#include <linux/arch_topology.h>
 #include <sound/control.h>
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -21,10 +20,6 @@
 #include <dsp/digital-cdc-rsc-mgr.h>
 
 #include "msm_common.h"
-
-#ifndef topology_cluster_id
-#define topology_cluster_id(cpu) topology_physical_package_id(cpu)
-#endif
 
 struct snd_card_pdata {
 	struct kobject snd_card_kobj;
@@ -76,12 +71,13 @@ struct chmap_pdata {
 };
 
 #define MAX_USR_INPUT 10
-#define MAX_CPU_CLUSTER 3 /*Silver, Gold, Prime*/
 
 static int qos_vote_status;
 static struct dev_pm_qos_request latency_pm_qos_req; /* pm_qos request */
 static unsigned int qos_client_active_cnt;
-static int cluster_first_cpu[MAX_CPU_CLUSTER] = {-1, };
+/* set audio task affinity to core 1 & 2 */
+static const unsigned int audio_core_list[] = {0, 1, 2, 3};
+static cpumask_t audio_cpu_map = CPU_MASK_NONE;
 static struct dev_pm_qos_request *msm_audio_req = NULL;
 static bool kregister_pm_qos_latency_controls = false;
 #define MSM_LL_QOS_VALUE	300 /* time in us to ensure LPM doesn't go in C3/C4 */
@@ -101,7 +97,7 @@ static ssize_t aud_dev_sysfs_store(struct kobject *kobj,
 
 	sscanf(buf, "%d %d", &pcm_id, &state);
 
-	if ((pcm_id > pdata->num_aud_devs) || (pcm_id < 0)) {
+	if ((pcm_id >= pdata->num_aud_devs) || (pcm_id < 0)) {
 		pr_err("%s: invalid pcm id %d \n", __func__, pcm_id);
 		goto done;
 	}
@@ -352,7 +348,7 @@ int mi2s_tdm_hw_vote_req(struct msm_common_pdata *pdata, int enable)
 		return -EINVAL;
 	}
 
-	pr_debug("%s: lpass audio hw vote for fractional sample rate enable: %d\n",
+	pr_info("%s: lpass audio hw vote for fractional sample rate enable: %d\n",
 				__func__, enable);
 
 	if (enable) {
@@ -389,8 +385,13 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 	struct msm_common_pdata *pdata = msm_common_get_pdata(card);
 	int index = get_mi2s_tdm_auxpcm_intf_index(stream_name);
 	struct clk_cfg intf_clk_cfg;
+#ifdef CONFIG_COMMON_AMP_CIRRUS
+	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
+	unsigned int num_codecs = rtd->num_codecs;
+	int i;
+#endif
 
-	dev_dbg(rtd->card->dev,
+	dev_info(rtd->card->dev,
 		"%s: substream = %s  stream = %d\n",
 		__func__, substream->name, substream->stream);
 
@@ -424,7 +425,7 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 						goto done;
 					}
 				}
-				pr_debug("%s: clk_id :%d clk freq %d\n", __func__,
+				pr_info("%s: clk_id :%d clk freq %d\n", __func__,
 					intf_clk_cfg.clk_id, intf_clk_cfg.clk_freq_in_hz);
 				ret = audio_prm_set_lpass_clk_cfg(&intf_clk_cfg, 1);
 				if (ret < 0) {
@@ -432,6 +433,19 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 						__func__, ret);
 					goto done;
 				}
+#ifdef CONFIG_COMMON_AMP_CIRRUS
+				for (i = 0; i < num_codecs; i++) {
+					codec_dai = asoc_rtd_to_codec(rtd, i);
+					ret = snd_soc_dai_set_sysclk(codec_dai, 0,
+							intf_clk_cfg.clk_freq_in_hz, SND_SOC_CLOCK_IN);
+					if (ret < 0)
+						pr_err("%s: failed to set codec tdm clk, err:%d\n",
+									__func__, ret);
+
+					ret = snd_soc_component_set_sysclk(codec_dai->component,
+							CLK_SRC_SCLK, 0, intf_clk_cfg.clk_freq_in_hz, SND_SOC_CLOCK_IN);
+				}
+#endif
 			} else if ((strnstr(stream_name, "MI2S", strlen(stream_name)))) {
 
 				ret =  get_mi2s_clk_id(index);
@@ -467,7 +481,7 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 						goto done;
 					}
 				}
-				pr_debug("%s: mi2s clk_id :%d clk freq %d\n", __func__,
+				pr_info("%s: mi2s clk_id :%d clk freq %d\n", __func__,
 					intf_clk_cfg.clk_id, intf_clk_cfg.clk_freq_in_hz);
 				ret = audio_prm_set_lpass_clk_cfg(&intf_clk_cfg, 1);
 				if (ret < 0) {
@@ -497,7 +511,7 @@ int msm_common_snd_startup(struct snd_pcm_substream *substream)
 	const char *stream_name = rtd->dai_link->stream_name;
 	int index = get_mi2s_tdm_auxpcm_intf_index(stream_name);
 
-	dev_dbg(rtd->card->dev,
+	dev_info(rtd->card->dev,
 		"%s: substream = %s  stream = %d\n",
 		__func__, substream->name, substream->stream);
 
@@ -517,6 +531,9 @@ int msm_common_snd_startup(struct snd_pcm_substream *substream)
 							__func__, ret);
 					goto done;
 				}
+				else
+					pr_info("%s:pinctrl set actve success %d\n",
+							__func__, ret);
 			}
 			atomic_inc(&(pdata->mi2s_gpio_ref_cnt[index]));
 		}
@@ -539,7 +556,7 @@ void msm_common_snd_shutdown(struct snd_pcm_substream *substream)
 	unsigned int rate = runtime->rate;
 
 	memset(&intf_clk_cfg, 0, sizeof(struct clk_cfg));
-	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+	pr_info("%s(): substream = %s  stream = %d\n", __func__,
 			substream->name, substream->stream);
 
 	if (!pdata) {
@@ -561,6 +578,9 @@ void msm_common_snd_shutdown(struct snd_pcm_substream *substream)
 					if (ret < 0)
 						pr_err("%s: prm tdm clk cfg set failed ret %d\n",
 						__func__, ret);
+					else
+						pr_info("%s: prm tdm clk cfg set success ret %d\n",
+						__func__, ret);
 				}
 			} else if((strnstr(stream_name, "MI2S", strlen(stream_name)))) {
 				ret = get_mi2s_clk_id(index);
@@ -569,6 +589,9 @@ void msm_common_snd_shutdown(struct snd_pcm_substream *substream)
 					ret = audio_prm_set_lpass_clk_cfg(&intf_clk_cfg, 0);
 					if (ret < 0)
 						pr_err("%s: prm mi2s clk cfg disable failed ret %d\n",
+							__func__, ret);
+					else
+						pr_info("%s: prm mi2s clk cfg disable success ret %d\n",
 							__func__, ret);
 				}
 			} else {
@@ -591,8 +614,11 @@ void msm_common_snd_shutdown(struct snd_pcm_substream *substream)
 					pdata->mi2s_gpio_p[index]);
 				if (ret)
 					dev_err(card->dev,
-					"%s: pinctrl set actv fail %d\n",
+					"%s: pinctrl set sleep fail %d\n",
 					__func__, ret);
+				else
+					pr_info("%s:pinctrl set sleep success %d\n",
+							__func__, ret);
 			} else if (atomic_read(&pdata->mi2s_gpio_ref_cnt[index]) < 0) {
 				atomic_set(&pdata->mi2s_gpio_ref_cnt[index], 0);
 			}
@@ -603,42 +629,32 @@ void msm_common_snd_shutdown(struct snd_pcm_substream *substream)
 
 static void msm_audio_add_qos_request()
 {
-	int num_req = 0;
+	int i;
 	int cpu = 0;
 	int ret = 0;
-	int cid, prev_cid = -1;
-	int cluster_num = 0;
-	cpumask_t* cluster_cpu_mask = NULL;
 
 	msm_audio_req = kcalloc(num_possible_cpus(),
 			sizeof(struct dev_pm_qos_request), GFP_KERNEL);
 	if (!msm_audio_req)
 		return;
 
-	for_each_cpu(cpu, cpu_possible_mask) {
-		cid = topology_cluster_id(cpu);
-		if(cid != prev_cid) {
-			cluster_first_cpu[cluster_num++] = cpu;
-			prev_cid = cid;
-		}
+	for (i = 0; i < ARRAY_SIZE(audio_core_list); i++) {
+		if (audio_core_list[i] >= num_possible_cpus())
+			pr_err("%s incorrect cpu id: %d specified.\n",
+					__func__, audio_core_list[i]);
+		else
+			cpumask_set_cpu(audio_core_list[i], &audio_cpu_map);
 	}
 
-	/* Pick the first cluster as it represents the Silver cluster. */
-	cluster_cpu_mask = topology_core_cpumask(cluster_first_cpu[0]);
-
-	for_each_cpu(cpu, cluster_cpu_mask) {
+	for_each_cpu(cpu, &audio_cpu_map) {
 		ret = dev_pm_qos_add_request(get_cpu_device(cpu),
 				&msm_audio_req[cpu],
 				DEV_PM_QOS_RESUME_LATENCY,
 				PM_QOS_CPU_LATENCY_DEFAULT_VALUE);
 		if (ret < 0)
 			pr_err("%s error (%d) adding resume latency to cpu %d.\n",
-                                                __func__, ret, cpu);
-		pr_debug("%s set cpu affinity to logical core %d.\n", __func__, cpu);
-
-		/* Limit the request to 2 silver cpu cores. */
-		if (++num_req == 2)
-			break;
+							__func__, ret, cpu);
+		pr_debug("%s set cpu affinity to core %d.\n", __func__, cpu);
 	}
 }
 
@@ -646,12 +662,9 @@ static void msm_audio_remove_qos_request()
 {
 	int cpu = 0;
 	int ret = 0;
-	cpumask_t* cluster_cpu_mask = NULL;
-
-	cluster_cpu_mask = topology_core_cpumask(cluster_first_cpu[0]);
 
 	if (msm_audio_req) {
-		for_each_cpu(cpu, cluster_cpu_mask) {
+		for_each_cpu(cpu, &audio_cpu_map) {
 			ret = dev_pm_qos_remove_request(
 					&msm_audio_req[cpu]);
 			if (ret < 0)
@@ -838,10 +851,6 @@ int msm_channel_map_get(struct snd_kcontrol *kcontrol,
 			chmap = tx_ch;
 			ch_cnt = tx_ch_cnt;
 		}
-		if (ch_cnt > 2) {
-			pr_err("%s: Incorrect channel count: %d\n", ch_cnt);
-			return -EINVAL;
-		}
 		len = sizeof(uint32_t) * (ch_cnt + 1);
 		chmap_data = kzalloc(len, GFP_KERNEL);
 		if (!chmap_data)
@@ -937,28 +946,21 @@ static void msm_audio_update_qos_request(u32 latency)
 {
 	int cpu = 0;
 	int ret = -1;
-	int num_req = 0;
-	cpumask_t* cluster_cpu_mask = NULL;
-
-	cluster_cpu_mask = topology_core_cpumask(cluster_first_cpu[0]);
 
 	if (msm_audio_req) {
-		for_each_cpu(cpu, cluster_cpu_mask) {
+		for_each_cpu(cpu, &audio_cpu_map) {
 			ret = dev_pm_qos_update_request(
 					&msm_audio_req[cpu], latency);
 			if (1 == ret ) {
-				pr_debug("%s: updated latency of core %d to %u.\n",
+				pr_info("%s: updated latency of core %d to %u.\n",
 								__func__, cpu, latency);
 			} else if (0 == ret) {
-				pr_debug("%s: latency of core %d not changed. latency %u.\n",
+				pr_info("%s: latency of core %d not changed. latency %u.\n",
 								__func__, cpu, latency);
 			} else {
 				pr_err("%s: failed to update latency of core %d, error %d \n",
 								__func__, cpu, ret);
 			}
-			/* Limit the request to 2 Silver CPU cores. */
-			if (++num_req == 2)
-				break;
 		}
 	}
 }

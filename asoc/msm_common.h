@@ -15,6 +15,17 @@
 #include <sound/soc.h>
 #include <sound/pcm.h>
 
+#ifdef CONFIG_COMMON_AMP_CIRRUS
+#define CLK_SRC_SCLK 0
+#define CLK_SRC_LRCLK 1
+#define CLK_SRC_PDM 2
+#define CLK_SRC_SELF 3
+#define CLK_SRC_MCLK 4
+#define CLK_SRC_SWIRE 5
+#define CLK_SRC_DAI 0
+#define CLK_SRC_CODEC 1
+#endif
+
 enum {
 	MI2S = 0,
 	TDM,

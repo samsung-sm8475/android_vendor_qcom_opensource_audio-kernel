@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _WAIPIO_PORT_CONFIG
@@ -40,7 +39,7 @@ static struct port_params wsa_frame_params_receiver[SWR_MSTR_PORT_LEN] = {
 
 static struct port_params rx_frame_params_dsd[SWR_MSTR_PORT_LEN] = {
 	{3,  0,  0,  0xFF, 0xFF, 1,    0xFF, 0xFF, 1, 0x00, 0x00},
-	{63, 0,  0,  3,    6,    7,    0,    0xFF, 0, 0x00, 0x02},
+	{31, 0,  0,  3,    6,    7,    0,    0xFF, 0, 0x00, 0x02},
 	{31, 11, 11, 0xFF, 0xFF, 4,    1,    0xFF, 0, 0x00, 0x02},
 	{7,  9,  0,  0xFF, 0xFF, 0xFF, 0xFF, 1,    0, 0x00, 0x00},
 	{3,  1,  0,  0xFF, 0xFF, 0xFF, 0xFF, 3,    0, 0x00, 0x00},
@@ -49,7 +48,7 @@ static struct port_params rx_frame_params_dsd[SWR_MSTR_PORT_LEN] = {
 /* Headset + PCM Haptics */
 static struct port_params rx_frame_params_default[SWR_MSTR_PORT_LEN] = {
 	{3,  0,  0,  0xFF, 0xFF, 1,    0xFF, 0xFF, 1, 0x00, 0x00}, /* HPH/EAR */
-	{63, 0,  0,  3,    6,    7,    0,    0xFF, 0, 0x00, 0x02}, /* HPH_CLH */
+	{31, 0,  0,  3,    6,    7,    0,    0xFF, 0, 0x00, 0x02}, /* HPH_CLH */
 	{31, 11, 11, 0xFF, 0xFF, 4,    1,    0xFF, 0, 0x00, 0x02}, /* HPH_CMP */
 	{7,  1,  0,  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0x00, 0x00}, /* LO/AUX */
 	{0,  0,  0,  0xFF, 0xFF, 0xFF, 0xFF, 0,    0, 0x00, 0x00}, /* DSD */
@@ -78,17 +77,6 @@ static struct swr_mstr_port_map sm_port_map[] = {
 
 /* Port configurations to support 937x */
 static struct swr_mstr_port_map sm_port_map_wcd937x[] = {
-	{RX_MACRO, SWR_UC0, rx_frame_params_default},
-	{RX_MACRO, SWR_UC1, rx_frame_params_dsd},
-	{RX_MACRO, SWR_UC2, rx_frame_params_44p1KHz},
-	{WSA_MACRO, SWR_UC0, wsa_frame_params_default},
-	{WSA_MACRO, SWR_UC1, wsa_frame_params_receiver},
-	{WSA2_MACRO, SWR_UC0, wsa_frame_params_default},
-	{WSA2_MACRO, SWR_UC1, wsa_frame_params_receiver},
-};
-
-/* Port configurations to support 4WSA HAC - same as 937x*/
-static struct swr_mstr_port_map sm_port_map_tx_plus_wsa[] = {
 	{RX_MACRO, SWR_UC0, rx_frame_params_default},
 	{RX_MACRO, SWR_UC1, rx_frame_params_dsd},
 	{RX_MACRO, SWR_UC2, rx_frame_params_44p1KHz},
