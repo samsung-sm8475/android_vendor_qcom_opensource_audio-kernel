@@ -2137,7 +2137,7 @@ static int aw_cali_misc_switch_dev(struct file *filp, struct aw_device *aw_dev, 
 {
 	int ret;
 	int i;
-	char dev_select[50] = { 0 };
+	char dev_select[51] = { 0 };
 	struct list_head *dev_list = NULL;
 	struct list_head *pos = NULL;
 	struct aw_device *local_dev = NULL;
